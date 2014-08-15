@@ -15,10 +15,15 @@ import org.apache.commons.logging.LogFactory;
 
 import com.esri.ges.core.Uri;
 import com.esri.ges.core.component.ComponentException;
-import com.esri.ges.core.geoevent.FieldException;
+import com.esri.ges.core.geoevent.DefaultFieldDefinition;
+import com.esri.ges.core.geoevent.FieldDefinition;
+import com.esri.ges.core.geoevent.FieldType;
 import com.esri.ges.core.geoevent.GeoEvent;
+import com.esri.ges.core.geoevent.GeoEventDefinition;
 import com.esri.ges.core.geoevent.GeoEventPropertyName;
 import com.esri.ges.core.validation.ValidationException;
+import com.esri.ges.manager.geoeventdefinition.GeoEventDefinitionManager;
+import com.esri.ges.manager.geoeventdefinition.GeoEventDefinitionManagerException;
 import com.esri.ges.messaging.EventDestination;
 import com.esri.ges.messaging.EventProducer;
 import com.esri.ges.messaging.EventUpdatable;
@@ -29,6 +34,7 @@ import com.esri.ges.messaging.MessagingException;
 import com.esri.ges.processor.GeoEventProcessorBase;
 import com.esri.ges.processor.GeoEventProcessorDefinition;
 import com.esri.ges.spatial.Geometry;
+import com.esri.ges.spatial.GeometryType;
 import com.esri.ges.spatial.Point;
 import com.esri.ges.spatial.Polyline;
 import com.esri.ges.spatial.Spatial;
@@ -37,87 +43,96 @@ import com.esri.ges.util.Validator;
 
 public class MotionCalculator extends GeoEventProcessorBase implements EventProducer, EventUpdatable
 {
-  private static final Log                     log                      = LogFactory.getLog(MotionCalculator.class);
-  private Spatial spatial;
- 
-  private MotionCalculatorNotificationMode     notificationMode;
-  private long                                 reportInterval;
+  private static final Log                  log                 = LogFactory.getLog(MotionCalculator.class);
+  private Spatial                           spatial;
 
-  private final Map<String, MotionElements>    motionElementsCache      = new ConcurrentHashMap<String, MotionElements>();
+  private MotionCalculatorNotificationMode  notificationMode;
+  private long                              reportInterval;
 
-  private Messaging                            messaging;
-  private GeoEventCreator                      geoEventCreator;
-  private GeoEventProducer                     geoEventProducer;
-  private EventDestination                     destination;
-  
-  private boolean                              copyFieldsFromSource;  
-  private String                               distanceUnit;
-  private String                               geometryType;
-  private boolean                              predictivePosition;
-  private String                               predictiveGeometryType;
-  private Integer                              predictiveTimespan;
-  private Date                                 resetTime;
-  private boolean                              autoResetCache;  
-  private Timer                                clearCacheTimer;
-  private boolean                              clearCache;
-  private Uri                                  definitionUri;
-  private String                               definitionUriString;
-  private boolean                              isCounting = false;
-   
-  final   Object                               lock1 = new Object();
-  
+  private final Map<String, MotionElements> motionElementsCache = new ConcurrentHashMap<String, MotionElements>();
+
+  private Messaging                         messaging;
+  private GeoEventCreator                   geoEventCreator;
+  private GeoEventProducer                  geoEventProducer;
+  private EventDestination                  destination;
+
+  private String                            distanceUnit;
+  private String                            geometryType;
+  private boolean                           calcStat;
+  private boolean                           predictivePosition;
+  private String                            predictiveGeometryType;
+  private Integer                           predictiveTimespan;
+  private Date                              resetTime;
+  private boolean                           autoResetCache;
+  private Timer                             clearCacheTimer;
+  private boolean                           clearCache;
+  private Uri                               definitionUri;
+  private String                            definitionUriString;
+  private boolean                           isReporting          = false;
+  private String                            sourceGeoEventDefinitionGuid;
+  private GeoEventDefinitionManager         geoEventDefinitionManager;
+  private Map<String, String>               edMapper            = new ConcurrentHashMap<String, String>();
+  private String                            newGeoEventDefinitionName;
+
+  final Object                              lock1               = new Object();
+
   class MotionElements
   {
-    private String id;
+    private GeoEvent geoevent;
+    private String   id;
     private Geometry lineGeometry;
     private Geometry prevGeometry;
-    private Date timestamp;
-    private Double distance = 0.0; //distance defaulted to KMs, but may change to miles based on the distanceunit
-    private Double timespanSeconds = 0.0;
-    private Double speed = 0.0;
-    private Double acceleration = 0.0; //distances per second square
-    private Double headingDegrees = 0.0;
-    private Double cumulativeDistance = 0.0;
-    private Double cumulativeTimeSeconds = 0.0;
-    private Double minDistance = 0.0;
-    private Double maxDistance = 0.0;
-    private Double avgDistance = 0.0;
-    private Double minSpeed = 0.0;
-    private Double maxSpeed = 0.0;
-    private Double avgSpeed = 0.0;
-    private Double minAcceleration = 0.0;
-    private Double maxAcceleration = 0.0;
-    private Double avgAcceleration = 0.0;
-    private Double minTimespan = 0.0;
-    private Double maxTimespan = 0.0;
-    private Double avgTimespan = 0.0;
-    private Long count = 0L;
-    private Date predictiveTime;
-       
-    public MotionElements()
-    {
-      
-    }
+    private Date     timestamp;
+    private Double   distance              = 0.0; // distance defaulted to KMs,
+                                                  // but may change to miles
+                                                  // based on the distanceunit
+    private Double   timespanSeconds       = 0.0;
+    private Double   speed                 = 0.0;
+    private Double   acceleration          = 0.0; // distances per second square
+    private Double   headingDegrees        = 0.0;
+    private Double   cumulativeDistance    = 0.0;
+    private Double   cumulativeTimeSeconds = 0.0;
+    private Double   minDistance           = 0.0;
+    private Double   maxDistance           = 0.0;
+    private Double   avgDistance           = 0.0;
+    private Double   minSpeed              = 0.0;
+    private Double   maxSpeed              = 0.0;
+    private Double   avgSpeed              = 0.0;
+    private Double   minAcceleration       = 0.0;
+    private Double   maxAcceleration       = 0.0;
+    private Double   avgAcceleration       = 0.0;
+    private Double   minTimespan           = 0.0;
+    private Double   maxTimespan           = 0.0;
+    private Double   avgTimespan           = 0.0;
+    private Long     count                 = 0L;
+    private Date     predictiveTime;
     
+    public MotionElements(GeoEvent geoevent)
+    {
+      this.geoevent = geoevent;
+    }
+
     public Long getCount()
     {
       return count;
     }
-    
+
     public Double getCumulativeDistance()
     {
       return cumulativeDistance;
     }
-    
+
     public Double getCumulativeTime()
     {
       return cumulativeTimeSeconds;
     }
-      
+
     public Geometry getGeometry()
     {
-      if (geometryType.equals("Point")) {
-        return this.prevGeometry;
+      if (geometryType.equals("Point"))
+      {
+        //returns the original geometry -- don't care for type for now
+        return this.geoevent.getGeometry();
       }
       else
       {
@@ -125,103 +140,18 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       }
     }
 
-    public void setGeometry(Geometry geometry)
-    {
-      count++;
-      if (this.prevGeometry == null) 
-      {
-        this.prevGeometry = geometry;
-        return;
-      }
-      Point from = (Point)this.prevGeometry;
-      Point to = (Point)geometry;
-      //Double newDistance = halversineDistance(from.getX(), from.getY(), to.getX(), to.getY());
-      Double newDistance = lawOfCosineDistance(from.getX(), from.getY(), to.getX(), to.getY());
-      if (distanceUnit == "Miles")
-      {
-        newDistance *= 0.621371; //Convert KMs to Miles -- will affect all subsequent calculation 
-      }
-      Double timespanHours = timespanSeconds / (3600.0);
-      Double newSpeed = newDistance / timespanHours;
-      Double newAcceleration = (newSpeed - speed) / timespanHours;
-      if (minDistance > newDistance) {
-        minDistance = newDistance;
-      }
-      if (maxDistance < newDistance) {
-        maxDistance = newDistance;
-      }
-      if (minSpeed > newSpeed) {
-        minSpeed = newSpeed;
-      }
-      if (maxSpeed < newSpeed) {
-        maxSpeed = newSpeed;
-      }
-      if (minAcceleration > newAcceleration) {
-        minAcceleration = newAcceleration;
-      }
-      if (maxAcceleration < newAcceleration) {
-        maxAcceleration = newAcceleration;
-      }
-      
-      cumulativeDistance = cumulativeDistance + newDistance;
-      //avgSpeed = cumulativeDistance / cumulativeTimeSeconds;
-      avgSpeed = avgDistance / avgTimespan;
-      avgAcceleration = avgSpeed / avgTimespan;
-      
-      headingDegrees = heading(from.getX(), from.getY(), to.getX(), to.getY());
-      distance = newDistance;
-      speed = newSpeed;
-      acceleration = newAcceleration;
-      Polyline polyline = spatial.createPolyline();
-      polyline.startPath(from.getX(), from.getY(), Double.NaN);
-      polyline.lineTo(to.getX(), to.getY(), Double.NaN);
-
-      this.prevGeometry = geometry;
-    }
-
-    public String getId()
-    {
-      return id;
-    }
-
-    public void setId(String id)
-    {
-      this.id = id;
-    }
-    
-    public void sendReport()
-    {
-      if (notificationMode != MotionCalculatorNotificationMode.OnChange)
-      {
-        return;
-      }
-      
-      try
-      {
-        send(createMotionGeoEvent(id, this));
-      }
-      catch (MessagingException e)
-      {
-        log.error("Error sending update GeoEvent for " + id, e);
-      }
-    }
-   
-    public Date getTimestamp()
-    {
-      return timestamp;    
-    }
-
-    public void setTimestamp(Date startTime)
+    public void computeTimespan()
     {
       Long timespanMilliSecs = 0L;
       if (timestamp != null)
       {
-        timespanMilliSecs = startTime.getTime() - timestamp.getTime();
+        timespanMilliSecs = geoevent.getStartTime().getTime() - timestamp.getTime();
       }
       timespanSeconds = timespanMilliSecs / 1000.0;
       if (timespanSeconds == 0.0)
       {
-        timespanSeconds = 0.0000000001; // set to very small value to avoid divisor is 0
+        timespanSeconds = 0.0000000001; // set to very small value to avoid
+                                        // divisor is 0
       }
       if (minTimespan > timespanSeconds)
       {
@@ -240,8 +170,130 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       {
         avgTimespan = cumulativeTimeSeconds;
       }
+
+      timestamp = geoevent.getStartTime();
+    }
+    
+    public void calculate()
+    {
+      count++;
+      //Need to compute timespan first
+      computeTimespan();
       
-      timestamp = startTime;
+      if (this.prevGeometry == null)
+      {
+        this.prevGeometry = geoevent.getGeometry();
+        return;
+      }
+      Point from = (Point) this.prevGeometry;
+      Point to = (Point) geoevent.getGeometry();
+      // Double newDistance = halversineDistance(from.getX(), from.getY(),
+      // to.getX(), to.getY());
+      Double newDistance = lawOfCosineDistance(from.getX(), from.getY(), to.getX(), to.getY());
+      if (distanceUnit == "Miles")
+      {
+        newDistance *= 0.621371; // Convert KMs to Miles -- will affect all
+                                 // subsequent calculation
+      }
+      Double timespanHours = timespanSeconds / (3600.0);
+      Double newSpeed = newDistance / timespanHours;
+      Double newAcceleration = (newSpeed - speed) / timespanHours;
+      if (minDistance > newDistance)
+      {
+        minDistance = newDistance;
+      }
+      if (maxDistance < newDistance)
+      {
+        maxDistance = newDistance;
+      }
+      if (minSpeed > newSpeed)
+      {
+        minSpeed = newSpeed;
+      }
+      if (maxSpeed < newSpeed)
+      {
+        maxSpeed = newSpeed;
+      }
+      if (minAcceleration > newAcceleration)
+      {
+        minAcceleration = newAcceleration;
+      }
+      if (maxAcceleration < newAcceleration)
+      {
+        maxAcceleration = newAcceleration;
+      }
+
+      cumulativeDistance = cumulativeDistance + newDistance;
+      // avgSpeed = cumulativeDistance / (cumulativeTimeSeconds / 3600.0);
+      avgSpeed = avgDistance / avgTimespan;
+      avgAcceleration = avgSpeed / avgTimespan;
+
+      headingDegrees = heading(from.getX(), from.getY(), to.getX(), to.getY());
+      distance = newDistance;
+      speed = newSpeed;
+      acceleration = newAcceleration;
+      Polyline polyline = spatial.createPolyline();
+      polyline.startPath(from.getX(), from.getY(), Double.NaN);
+      polyline.lineTo(to.getX(), to.getY(), Double.NaN);
+
+      this.prevGeometry = geoevent.getGeometry();
+      
+      sendReport();
+    }
+
+    public String getId()
+    {
+      return geoevent.getTrackId();
+    }
+
+    public void sendReport()
+    {
+      if (notificationMode != MotionCalculatorNotificationMode.OnChange)
+      {
+        return;
+      }
+
+      try
+      {
+        send(createMotionGeoEvent(id, this));
+      }
+      catch (MessagingException e)
+      {
+        log.error("Error sending update GeoEvent for " + id, e);
+      }
+    }
+
+    private GeoEvent createMotionGeoEvent(String trackId, MotionElements motionElements)
+    {
+      GeoEventDefinition edOut;
+      GeoEvent geoEventOut = null;
+      try
+      {
+        edOut = lookupAndCreateEnrichedDefinition();
+        geoEventOut = geoEventCreator.create(edOut.getGuid(), new Object[] {geoevent.getAllFields(), createMotionGeoEventFields(id, this)});
+        geoEventOut.setProperty(GeoEventPropertyName.TYPE, "message");
+        geoEventOut.setProperty(GeoEventPropertyName.OWNER_ID, getId());
+        geoEventOut.setProperty(GeoEventPropertyName.OWNER_URI, definition.getUri());
+        for (Map.Entry<GeoEventPropertyName, Object> property : geoevent.getProperties())
+        {
+          if (!geoEventOut.hasProperty(property.getKey()))
+          {
+            geoEventOut.setProperty(property.getKey(), property.getValue());
+            
+          }
+        }
+      }
+      catch (Exception e1)
+      {
+        e1.printStackTrace();
+      }
+      return geoEventOut;
+    }
+    
+    public Date getTimestamp()
+    {
+      //Should this be the timestamp of the incoming geoevent or the calculated time?
+      return timestamp;
     }
 
     public Double getDistance()
@@ -318,7 +370,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     {
       return avgAcceleration;
     }
-    
+
     public Double getMaxAcceleration()
     {
       return maxAcceleration;
@@ -331,7 +383,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
     public Date getPredictiveTime()
     {
-      Long timespan = timestamp.getTime() + predictiveTimespan;
+      Long timespan = geoevent.getStartTime().getTime() + (predictiveTimespan * 1000);
       Date pt = new Date();
       pt.setTime(timespan);
       predictiveTime = pt;
@@ -340,45 +392,67 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
     public Geometry getPredictiveGeometry()
     {
-      //TODO: calculate point for this based on velocity and timespan
-      Geometry predictiveGeometry = null;
-      return predictiveGeometry;
+      double predictiveDistance = speed * (predictiveTimespan/ 3600.0); // seconds to hours 
+      
+      double distRatioSine = Math.sin(predictiveDistance);
+      double distRatioCosine = Math.cos(predictiveDistance);
+
+      Point currentPoint = (Point)geoevent.getGeometry();
+      double startLonRad = toRadions(currentPoint.getX());
+      double startLatRad = toRadions(currentPoint.getY());
+
+      double startLatCos = Math.cos(startLatRad);
+      double startLatSin = Math.sin(startLatRad);
+
+      double endLatRads = Math.asin((startLatSin * distRatioCosine) + (startLatCos * distRatioSine * Math.cos(toRadions(headingDegrees))));
+      double endLonRads = startLonRad + Math.atan2(Math.sin(toRadions(headingDegrees)) * distRatioSine * startLatCos,
+              distRatioCosine - startLatSin * Math.sin(endLatRads));
+
+      double newLat = toDegrees(endLatRads);
+      double newLong = toDegrees(endLonRads);      
+
+      if (predictiveGeometryType.equals("Point"))
+      {
+        return spatial.createPoint(newLong, newLat, 4326);
+      }
+      else
+      {
+        Polyline polyline = spatial.createPolyline();
+        polyline.startPath(currentPoint.getX(), currentPoint.getY(), Double.NaN);
+        polyline.lineTo(newLong, newLat, Double.NaN);
+        return polyline;
+      }
     }
   }
- 
+
   class ClearCacheTask extends TimerTask
   {
     public void run()
     {
       if (autoResetCache == true)
       {
-        for (String catId : motionElementsCache.keySet())
+        // clear the cache
+        if (clearCache == true)
         {
-          MotionElements motionEles = new MotionElements();
-          motionElementsCache.put(catId, motionEles);
+          motionElementsCache.clear();
         }
-      }
-      // clear the cache
-      if (clearCache == true)
-      {
-        motionElementsCache.clear();
       }
     }
   }
-   
+
   class ReportGenerator implements Runnable
-  { 
+  {
     private Long reportInterval = 5000L;
-    
-    public ReportGenerator(Long reportInterval) 
+
+    public ReportGenerator(Long reportInterval)
     {
       this.reportInterval = reportInterval;
     }
-  
+
     @Override
     public void run()
     {
-      while (isCounting)
+      while (isReporting)
       {
         try
         {
@@ -387,13 +461,14 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
           {
             continue;
           }
-          
+
           for (String catId : motionElementsCache.keySet())
           {
-            MotionElements counters = motionElementsCache.get(catId);
+            MotionElements motionEle = motionElementsCache.get(catId);
             try
             {
-              send(createMotionGeoEvent(catId, counters));
+
+              send(motionEle.createMotionGeoEvent(catId, motionEle));
             }
             catch (MessagingException e)
             {
@@ -404,11 +479,11 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         catch (InterruptedException e1)
         {
           log.error(e1);
-        }       
+        }
       }
-    }   
+    }
   }
-  
+
   protected MotionCalculator(GeoEventProcessorDefinition definition) throws ComponentException
   {
     super(definition);
@@ -416,6 +491,8 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
   public void afterPropertiesSet()
   {
+    calcStat = Converter.convertToBoolean(getProperty("calcStat").getValueAsString());
+    newGeoEventDefinitionName = getProperty("newGeoEventDefinitionName").getValueAsString();
     distanceUnit = getProperty("distanceUnit").getValueAsString();
     geometryType = getProperty("geometryType").getValueAsString();
     notificationMode = Validator.validateEnum(MotionCalculatorNotificationMode.class, getProperty("notificationMode").getValueAsString(), MotionCalculatorNotificationMode.OnChange);
@@ -423,7 +500,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     autoResetCache = Converter.convertToBoolean(getProperty("autoResetCache").getValueAsString());
     predictivePosition = Converter.convertToBoolean(getProperty("predictivePosition").getValueAsString());
     predictiveGeometryType = getProperty("predictiveGeometryType").getValueAsString();
-    predictiveTimespan = Converter.convertToInteger(getProperty("predictiveTimespan").getValueAsString(), 10) * 1000; //convert to milliseconds
+    predictiveTimespan = Converter.convertToInteger(getProperty("predictiveTimespan").getValueAsString(), 10) * 1000; // convert
+                                                                                                                      // to
+                                                                                                                      // milliseconds
 
     String[] resetTimeStr = getProperty("resetTime").getValueAsString().split(":");
     // Get the Date corresponding to 11:01:00 pm today.
@@ -443,33 +522,29 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   }
 
   @Override
-  public GeoEvent process(GeoEvent geoEvent) throws Exception
+  public GeoEvent process(GeoEvent geoevent) throws Exception
   {
-    String trackId = geoEvent.getTrackId();
-    Geometry geometry = geoEvent.getGeometry();
-    
+    sourceGeoEventDefinitionGuid = geoevent.getGeoEventDefinition().getGuid();
+
+    String trackId = geoevent.getTrackId();
     MotionElements motionEle;
-    if (motionElementsCache.containsKey(trackId) == false) 
+    if (motionElementsCache.containsKey(trackId) == false)
     {
-      motionEle = new MotionElements();
+      motionEle = new MotionElements(geoevent);
     }
     else
     {
       motionEle = motionElementsCache.get(trackId);
     }
-    motionEle.setId(trackId);
-    //Need to set timestamp before geometry to ensure order of calculation
-    motionEle.setTimestamp(geoEvent.getStartTime());
-    motionEle.setGeometry(geometry);
     // Need to synchronize the Concurrent Map on write to avoid wrong counting
-    synchronized(lock1)
+    synchronized (lock1)
     {
-      motionElementsCache.put(trackId, motionEle);    
-    }      
-       
+      motionElementsCache.put(trackId, motionEle);
+    }
+
     return null;
   }
-  
+
   @Override
   public List<EventDestination> getEventDestinations()
   {
@@ -505,20 +580,20 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         Date time1 = calendar1.getTime();
 
         clearCacheTimer = new Timer();
-        Long dayInMilliSeconds = 60*60*24*1000L;
+        Long dayInMilliSeconds = 60 * 60 * 24 * 1000L;
         clearCacheTimer.scheduleAtFixedRate(new ClearCacheTask(), time1, dayInMilliSeconds);
       }
-      //trackGeometryCache.clear();
+      // trackGeometryCache.clear();
       motionElementsCache.clear();
     }
-   
-    isCounting = true;
+
+    isReporting = true;
     if (definition != null)
     {
       definitionUri = definition.getUri();
-      definitionUriString = definitionUri.toString();      
+      definitionUriString = definitionUri.toString();
     }
-    
+
     ReportGenerator reportGen = new ReportGenerator(reportInterval);
     Thread t = new Thread(reportGen);
     t.setName("MotionCalculator Report Generator");
@@ -532,18 +607,19 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     {
       clearCacheTimer.cancel();
     }
-    isCounting = false;
+    isReporting = false;
   }
 
   @Override
   public void shutdown()
   {
     super.shutdown();
-    
+
     if (clearCacheTimer != null)
     {
       clearCacheTimer.cancel();
     }
+    clearGeoEventDefinitionMapper();
   }
 
   @Override
@@ -555,11 +631,11 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   @Override
   public void send(GeoEvent geoEvent) throws MessagingException
   {
-    //Try to get it again
+    // Try to get it again
     if (geoEventProducer == null)
     {
       destination = new EventDestination(getId() + ":event");
-      geoEventProducer = messaging.createGeoEventProducer(destination.getName());      
+      geoEventProducer = messaging.createGeoEventProducer(destination.getName());
     }
     if (geoEventProducer != null && geoEvent != null)
     {
@@ -571,101 +647,168 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   {
     this.messaging = messaging;
     geoEventCreator = messaging.createGeoEventCreator();
-  } 
+  }
 
   public void setSpatial(Spatial spatial)
   {
     this.spatial = spatial;
   }
-  
-  private GeoEvent createMotionGeoEvent(String trackId, MotionElements motionElements) throws MessagingException
-  {
-    GeoEvent motionEvent = null;
-    if (geoEventCreator != null && definitionUriString != null && definitionUri != null)
-    {
-      try
-      {
-        motionEvent = geoEventCreator.create("MotionCalculator", definitionUriString);
-        motionEvent.setField(0, trackId);
-        motionEvent.setField(1, motionElements.getDistance());
-        motionEvent.setField(2, motionElements.getTimespanSeconds());
-        motionEvent.setField(3, motionElements.getSpeed());
-        motionEvent.setField(4, motionElements.getHeadingDegrees());
-        
-        motionEvent.setField(5, motionElements.getMinTime());
-        motionEvent.setField(6, motionElements.getMaxTime());
-        motionEvent.setField(7, motionElements.getAvgTime());
-        
-        motionEvent.setField(8, motionElements.getMinDistance());
-        motionEvent.setField(9, motionElements.getMaxDistance());
-        motionEvent.setField(10, motionElements.getAvgDistance());
-        
-        motionEvent.setField(11, motionElements.getMinSpeed());
-        motionEvent.setField(12, motionElements.getMaxSpeed());
-        motionEvent.setField(13, motionElements.getAvgSpeed());
 
-        motionEvent.setField(14, motionElements.getMinAcceleration());
-        motionEvent.setField(15, motionElements.getMaxAcceleration());
-        motionEvent.setField(16, motionElements.getAvgAcceleration());
-        
-        motionEvent.setField(17, motionElements.getCumulativeDistance());
-        motionEvent.setField(18, motionElements.getCumulativeTime());
-        motionEvent.setField(19, motionElements.getTimestamp());
-        
-        motionEvent.setField(20, motionElements.getGeometry());
-        motionEvent.setField(21, motionElements.getPredictiveTime());
-        motionEvent.setField(22, motionElements.getPredictiveGeometry());
-       
-        motionEvent.setProperty(GeoEventPropertyName.TYPE, "event");
-        motionEvent.setProperty(GeoEventPropertyName.OWNER_ID, getId());
-        motionEvent.setProperty(GeoEventPropertyName.OWNER_URI, definitionUri);
-      }
-      catch (FieldException e)
-      {
-        motionEvent = null;
-        log.error("Failed to create Motion Calculator GeoEvent: " + e.getMessage());
-      }
-    }
-    return motionEvent;
+  public void setGeoEventDefinitionManager(GeoEventDefinitionManager geoEventDefinitionManager)
+  {
+    this.geoEventDefinitionManager = geoEventDefinitionManager;
   }
+
+  private List<FieldDefinition> createFieldDefinitionList()
+  {
+    // GeoEventDefinition gedMC = new DefaultGeoEventDefinition();
+    // gedMC.setName("MotionCalculator");
+    List<FieldDefinition> fdsMC = new ArrayList<FieldDefinition>();
+    try
+    {
+      fdsMC.add(new DefaultFieldDefinition("trackId", FieldType.String, "TRACK_ID"));
+      fdsMC.add(new DefaultFieldDefinition("distance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("timespan", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("speed", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("heading", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("minTimespan", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("maxTimespan", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("avgTimespan", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("minDistance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("maxDistance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("avgDistance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("minSpeed", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("maxSpeed", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("avgSpeed", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("minAcceleration", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("maxAcceleration", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("avgAcceleration", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("cumulativeDistance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("cumulativeTime", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("calculatedAt", FieldType.Date));
+      fdsMC.add(new DefaultFieldDefinition("geometry", FieldType.Geometry, "GEOMETRY"));
+      fdsMC.add(new DefaultFieldDefinition("predictiveTime", FieldType.Date));
+      fdsMC.add(new DefaultFieldDefinition("predictivePosition", FieldType.Geometry, "GEOMETRY"));
+    }
+    catch (Exception e)
+    {
+
+    }
+    return fdsMC;
+    // gedMC.setFieldDefinitions(fdsMC);
+    // geoEventDefinitions.put(gedMC.getName(), gedMC);
+
+  }
+
+  synchronized private GeoEventDefinition lookupAndCreateEnrichedDefinition() throws Exception
+  {
+    GeoEventDefinition edIn = geoEventDefinitionManager.getGeoEventDefinition(sourceGeoEventDefinitionGuid);
+    GeoEventDefinition edOut = edMapper.containsKey(edIn.getGuid()) ? geoEventDefinitionManager.getGeoEventDefinition(edMapper.get(edIn.getGuid())) : null;
+    if (edOut == null)
+    {
+      edOut = edIn.augment(createFieldDefinitionList());
+      edOut.setName(newGeoEventDefinitionName);
+      edOut.setOwner(getId());
+      geoEventDefinitionManager.addTemporaryGeoEventDefinition(edOut, newGeoEventDefinitionName.isEmpty());
+      edMapper.put(edIn.getGuid(), edOut.getGuid());
+    }
+    return edOut;
+  }
+
+  synchronized private void clearGeoEventDefinitionMapper()
+  {
+    if (!edMapper.isEmpty())
+    {
+      for (String guid : edMapper.values())
+      {
+        try
+        {
+          geoEventDefinitionManager.deleteGeoEventDefinition(guid);
+        }
+        catch (GeoEventDefinitionManagerException e)
+        {
+          ;
+        }
+      }
+      edMapper.clear();
+    }
+  }
+
+  private Object[] createMotionGeoEventFields(String trackId, MotionElements motionElements)
+  {
+    Object[] motionFields = new Object[22];
+    motionFields[0] = motionElements.getDistance();
+    motionFields[1] = motionElements.getTimespanSeconds();
+    motionFields[2] = motionElements.getSpeed();
+    motionFields[3] = motionElements.getHeadingDegrees();
+
+    if (calcStat) 
+    {
+      motionFields[4] = motionElements.getMinTime();
+      motionFields[5] = motionElements.getMaxTime();
+      motionFields[6] = motionElements.getAvgTime();
   
+      motionFields[7] = motionElements.getMinDistance();
+      motionFields[8] = motionElements.getMaxDistance();
+      motionFields[9] = motionElements.getAvgDistance();
+  
+      motionFields[10] = motionElements.getMinSpeed();
+      motionFields[11] = motionElements.getMaxSpeed();
+      motionFields[12] = motionElements.getAvgSpeed();
+  
+      motionFields[13] = motionElements.getMinAcceleration();
+      motionFields[14] = motionElements.getMaxAcceleration();
+      motionFields[15] = motionElements.getAvgAcceleration();
+  
+      motionFields[16] = motionElements.getCumulativeDistance();
+      motionFields[17] = motionElements.getCumulativeTime();
+    }
+    motionFields[18] = motionElements.getTimestamp();
+    motionFields[19] = motionElements.getGeometry();
+
+    if (predictivePosition)
+    {
+      motionFields[20] = motionElements.getPredictiveTime();
+      motionFields[21] = motionElements.getPredictiveGeometry();
+    }
+
+    return motionFields;
+  }
+
   /*
    * Returns distance in KMs.
    */
   private static Double lawOfCosineDistance(Double lon1, Double lat1, Double lon2, Double lat2)
   {
-     final Double R = 6356752.3142; // Radious of the earth in km
-     Double radLon1 = toRadions(lon1);
-     Double radLat1 = toRadions(lat1);
-     Double radLon2 = toRadions(lon2);
-     Double radLat2 = toRadions(lat2);
-     
-     return Math.acos(Math.sin(radLat1)*Math.sin(radLat2)+Math.cos(radLat1)*Math.cos(radLat2)*Math.cos(radLon2-radLon1))*R;    
+    final Double R = 6356752.3142; // Radious of the earth in km
+    Double radLon1 = toRadions(lon1);
+    Double radLat1 = toRadions(lat1);
+    Double radLon2 = toRadions(lon2);
+    Double radLat2 = toRadions(lat2);
+
+    return Math.acos(Math.sin(radLat1) * Math.sin(radLat2) + Math.cos(radLat1) * Math.cos(radLat2) * Math.cos(radLon2 - radLon1)) * R;
   }
-  
+
   /*
-   * This is the implementation Haversine Distance Algorithm between two locations
-   *  R = earth’s radius (mean radius = 6,371km)
-      Δlat = lat2− lat1
-      Δlong = long2− long1
-      a = sin²(Δlat/2) + cos(lat1).cos(lat2).sin²(Δlong/2)
-      c = 2.atan2(√a, √(1−a))
-      d = R.c
-   *
+   * This is the implementation Haversine Distance Algorithm between two
+   * locations R = earth’s radius (mean radius = 6,371km) Δlat = lat2− lat1
+   * Δlong = long2− long1 a = sin²(Δlat/2) + cos(lat1).cos(lat2).sin²(Δlong/2) c
+   * = 2.atan2(√a, √(1−a)) d = R.c
+   * 
    * Returns distance in KMs.
    */
-  private static Double halversineDistance(Double lon1, Double lat1, Double lon2, Double lat2) {
+  @SuppressWarnings("unused")
+  private static Double halversineDistance(Double lon1, Double lat1, Double lon2, Double lat2)
+  {
     final Double R = 6356752.3142; // Radious of the earth in km
-    Double latDistance = toRadions(lat2-lat1);
-    Double lonDistance = toRadions(lon2-lon1);
-    Double a = Math.sin(latDistance / 2.0) * Math.sin(latDistance / 2.0) + 
-               Math.cos(toRadions(lat1)) * Math.cos(toRadions(lat2)) * 
-               Math.sin(lonDistance / 2.0) * Math.sin(lonDistance / 2.0);
-    Double c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    Double latDistance = toRadions(lat2 - lat1);
+    Double lonDistance = toRadions(lon2 - lon1);
+    Double a = Math.sin(latDistance / 2.0) * Math.sin(latDistance / 2.0) + Math.cos(toRadions(lat1)) * Math.cos(toRadions(lat2)) * Math.sin(lonDistance / 2.0) * Math.sin(lonDistance / 2.0);
+    Double c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     Double distance = R * c;
     return distance;
   }
-  
+
   /*
    * Returns heading in degrees
    */
@@ -675,41 +818,30 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     Double radLat1 = toRadions(lat1);
     Double radLon2 = toRadions(lon2);
     Double radLat2 = toRadions(lat2);
-    Double y = Math.sin(radLon2-radLon1)*Math.cos(radLat2);
-    Double x = Math.cos(radLat1)*Math.sin(radLat2)-Math.sin(radLat1)*Math.cos(radLat2)*Math.cos(radLon2-radLon1);
-    /* Without using Math.atan2()
-    Double headingDegrees = 0.0;
-    if (y > 0) 
-    {
-      if (x > 0) { headingDegrees = toDegrees(Math.atan(y/x)); }
-      if (x < 0) { headingDegrees = 180.0 - toDegrees(Math.atan(-y/x)); }
-      if (x == 0){ headingDegrees = 90.0; }  
-    }
-    if (y < 0) 
-    {
-      if (x > 0) { headingDegrees = toDegrees(-Math.atan(-y/x));}
-      if (x < 0) { headingDegrees = toDegrees(Math.atan(y/x))-180.0; }
-      if (x == 0){ headingDegrees = 270.0; }
-    }
-    if (y == 0) 
-    {
-      if (x > 0) { headingDegrees = 0.0; }
-      if (x < 0) { headingDegrees = 180.0; }
-      if (x == 0){ headingDegrees = Double.NaN; } //the 2 points are the same
-    }
-    */
-    Double headingDegrees = toDegrees(Math.atan2(y, x) % (2.0*Math.PI));
+    Double y = Math.sin(radLon2 - radLon1) * Math.cos(radLat2);
+    Double x = Math.cos(radLat1) * Math.sin(radLat2) - Math.sin(radLat1) * Math.cos(radLat2) * Math.cos(radLon2 - radLon1);
+    /*
+     * Without using Math.atan2() Double headingDegrees = 0.0; if (y > 0) { if
+     * (x > 0) { headingDegrees = toDegrees(Math.atan(y/x)); } if (x < 0) {
+     * headingDegrees = 180.0 - toDegrees(Math.atan(-y/x)); } if (x == 0){
+     * headingDegrees = 90.0; } } if (y < 0) { if (x > 0) { headingDegrees =
+     * toDegrees(-Math.atan(-y/x));} if (x < 0) { headingDegrees =
+     * toDegrees(Math.atan(y/x))-180.0; } if (x == 0){ headingDegrees = 270.0; }
+     * } if (y == 0) { if (x > 0) { headingDegrees = 0.0; } if (x < 0) {
+     * headingDegrees = 180.0; } if (x == 0){ headingDegrees = Double.NaN; }
+     * //the 2 points are the same }
+     */
+    Double headingDegrees = toDegrees(Math.atan2(y, x) % (2.0 * Math.PI));
     return headingDegrees;
   }
-  
-  private static Double toRadions(Double value) 
+
+  private static Double toRadions(Double value)
   {
     return value * Math.PI / 180.0;
   }
-  
+
   private static Double toDegrees(Double value)
   {
     return value * 180.0 / Math.PI;
   }
 }
-

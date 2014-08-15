@@ -1,6 +1,7 @@
 package com.esri.geoevent.processor.motioncalculator;
 
 import com.esri.ges.core.component.ComponentException;
+import com.esri.ges.manager.geoeventdefinition.GeoEventDefinitionManager;
 import com.esri.ges.messaging.Messaging;
 import com.esri.ges.processor.GeoEventProcessor;
 import com.esri.ges.processor.GeoEventProcessorServiceBase;
@@ -10,6 +11,7 @@ public class MotionCalculatorService extends GeoEventProcessorServiceBase
 {
   private Messaging messaging;
   private Spatial spatial;
+  private GeoEventDefinitionManager geoEventDefinitionManager;
 
   public MotionCalculatorService()
   {
@@ -19,11 +21,11 @@ public class MotionCalculatorService extends GeoEventProcessorServiceBase
   @Override
   public GeoEventProcessor create() throws ComponentException
   {
-    MotionCalculator detector = new MotionCalculator(definition);
-    detector.setMessaging(messaging);
-    detector.setSpatial(spatial);
-
-    return detector;
+    MotionCalculator motionCalc = new MotionCalculator(definition);
+    motionCalc.setMessaging(messaging);
+    motionCalc.setSpatial(spatial);
+    motionCalc.setGeoEventDefinitionManager(geoEventDefinitionManager);
+    return motionCalc;
   }
 
   public void setMessaging(Messaging messaging)
@@ -34,5 +36,10 @@ public class MotionCalculatorService extends GeoEventProcessorServiceBase
   public void setSpatial(Spatial spatial)
   {
     this.spatial = spatial;
-  }  
+  }
+
+  public void setGeoEventDefinitionManager(GeoEventDefinitionManager geoEventDefinitionManager)
+  {
+    this.geoEventDefinitionManager = geoEventDefinitionManager;
+  }
 }

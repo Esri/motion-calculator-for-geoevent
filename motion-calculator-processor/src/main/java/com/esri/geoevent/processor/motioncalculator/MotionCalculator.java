@@ -30,12 +30,16 @@ import com.esri.ges.processor.GeoEventProcessorBase;
 import com.esri.ges.processor.GeoEventProcessorDefinition;
 import com.esri.ges.spatial.Geometry;
 import com.esri.ges.spatial.Point;
+import com.esri.ges.spatial.Polyline;
+import com.esri.ges.spatial.Spatial;
 import com.esri.ges.util.Converter;
 import com.esri.ges.util.Validator;
 
 public class MotionCalculator extends GeoEventProcessorBase implements EventProducer, EventUpdatable
 {
   private static final Log                     log                      = LogFactory.getLog(MotionCalculator.class);
+  private Spatial spatial;
+ 
   private MotionCalculatorNotificationMode     notificationMode;
   private long                                 reportInterval;
 
@@ -47,6 +51,10 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   private EventDestination                     destination;
   
   private boolean                              copyFieldsFromSource;  
+  private String                               distanceUnit;
+  private String                               geometryType;
+  private boolean                              predictivePosition;
+  private String                               predictiveGeometryType;
   private Integer                              predictiveTimespan;
   private Date                                 resetTime;
   private boolean                              autoResetCache;  
@@ -62,11 +70,12 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   {
     private String id;
     private Geometry geometry;
+    private Geometry prevGeometry;
     private Date timestamp;
-    private Double distanceKMs = 0.0;
+    private Double distance = 0.0; //distance defaulted to KMs, but may change to miles based on the distanceunit
     private Double timespanSeconds = 0.0;
-    private Double speedKps = 0.0;
-    private Double accelerationKps2 = 0.0;
+    private Double speed = 0.0;
+    private Double acceleration = 0.0; //distances per second square
     private Double headingDegrees = 0.0;
     private Double cumulativeDistance = 0.0;
     private Double cumulativeTimeSeconds = 0.0;
@@ -84,11 +93,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     private Double avgTimespan = 0.0;
     private Long count = 0L;
     private Date predictiveTime;
-    private Geometry predictivePosition;
-    private Geometry predictivePath;
-    
-    private boolean hasChanged;
-    
+       
     public MotionElements()
     {
       
@@ -111,7 +116,22 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       
     public Geometry getGeometry()
     {
-      return geometry;
+      if (geometryType == "Point") {
+        return geometry;
+      }
+      else {
+        if (this.prevGeometry == null || this.geometry == null)
+        {
+          return null;
+        }
+        Point current = (Point)this.geometry;
+        Point prev = (Point)this.prevGeometry;
+        Polyline polyline = spatial.createPolyline();
+        polyline.startPath(prev.getX(), prev.getY(), Double.NaN);
+        polyline.lineTo(current.getX(), current.getY(), Double.NaN);
+        
+        return polyline;
+      }
     }
 
     public void setGeometry(Geometry geometry)
@@ -119,6 +139,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       count++;
       if (this.geometry == null) 
       {
+        this.prevGeometry = this.geometry;
         this.geometry = geometry;
         return;
       }
@@ -126,8 +147,13 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       Point to = (Point)geometry;
       //Double newDistance = halversineDistance(from.getX(), from.getY(), to.getX(), to.getY());
       Double newDistance = lawOfCosineDistance(from.getX(), from.getY(), to.getX(), to.getY());
-      Double newSpeed = newDistance / timespanSeconds;
-      Double newAcceleration = (newSpeed - speedKps) / timespanSeconds;
+      if (distanceUnit == "Miles")
+      {
+        newDistance *= 0.621371; //Convert KMs to Miles -- will affect all subsequent calculation 
+      }
+      Double timespanHours = timespanSeconds / (3600.0);
+      Double newSpeed = newDistance / timespanHours;
+      Double newAcceleration = (newSpeed - speed) / timespanHours;
       if (minDistance > newDistance) {
         minDistance = newDistance;
       }
@@ -153,9 +179,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       avgAcceleration = avgSpeed / avgTimespan;
       
       headingDegrees = heading(from.getX(), from.getY(), to.getX(), to.getY());
-      distanceKMs = newDistance;
-      speedKps = newSpeed;
-      accelerationKps2 = newAcceleration;
+      distance = newDistance;
+      speed = newSpeed;
+      acceleration = newAcceleration;
       this.geometry = geometry;      
     }
 
@@ -185,12 +211,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         log.error("Error sending update GeoEvent for " + id, e);
       }
     }
-
-    public Double getDistance()
-    {
-      return distanceKMs;
-    }
-    
+   
     public Date getTimestamp()
     {
       return timestamp;    
@@ -229,9 +250,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       timestamp = startTime;
     }
 
-    public Double getDistanceKMs()
+    public Double getDistance()
     {
-      return distanceKMs;
+      return distance;
     }
 
     public Double getTimespanSeconds()
@@ -239,9 +260,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       return timespanSeconds;
     }
 
-    public Double getSpeedKps()
+    public Double getSpeed()
     {
-      return speedKps;
+      return speed;
     }
 
     public Double getHeadingDegrees()
@@ -309,9 +330,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       return maxAcceleration;
     }
 
-    public Double getAccelerationKps2()
+    public Double getAcceleration()
     {
-      return accelerationKps2;
+      return acceleration;
     }
 
     public Date getPredictiveTime()
@@ -323,16 +344,11 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       return predictiveTime;
     }
 
-    public Geometry getPredictivePosition()
+    public Geometry getPredictiveGeometry()
     {
       //TODO: calculate point for this based on velocity and timespan
-      return predictivePosition;
-    }
-
-    public Geometry getPredictivePath()
-    {
-      //TODO: calculate line for this based on velocity and timespan
-      return predictivePath;
+      Geometry predictiveGeometry = null;
+      return predictiveGeometry;
     }
   }
  
@@ -406,11 +422,15 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
   public void afterPropertiesSet()
   {
-    copyFieldsFromSource = Converter.convertToBoolean(getProperty("copyFieldsFromSource").getValueAsString());    
+    distanceUnit = getProperty("distanceUnit").getValueAsString();
+    geometryType = getProperty("geometryType").getValueAsString();
     notificationMode = Validator.validateEnum(MotionCalculatorNotificationMode.class, getProperty("notificationMode").getValueAsString(), MotionCalculatorNotificationMode.OnChange);
-    predictiveTimespan = Converter.convertToInteger(getProperty("predictiveTimespan").getValueAsString(), 10) * 1000; //convert to milliseconds
     reportInterval = Converter.convertToInteger(getProperty("reportInterval").getValueAsString(), 10) * 1000;
     autoResetCache = Converter.convertToBoolean(getProperty("autoResetCache").getValueAsString());
+    predictivePosition = Converter.convertToBoolean(getProperty("predictivePosition").getValueAsString());
+    predictiveGeometryType = getProperty("predictiveGeometryType").getValueAsString();
+    predictiveTimespan = Converter.convertToInteger(getProperty("predictiveTimespan").getValueAsString(), 10) * 1000; //convert to milliseconds
+
     String[] resetTimeStr = getProperty("resetTime").getValueAsString().split(":");
     // Get the Date corresponding to 11:01:00 pm today.
     Calendar calendar = Calendar.getInstance();
@@ -559,6 +579,11 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     geoEventCreator = messaging.createGeoEventCreator();
   } 
 
+  public void setSpatial(Spatial spatial)
+  {
+    this.spatial = spatial;
+  }
+  
   private GeoEvent createMotionGeoEvent(String trackId, MotionElements motionElements) throws MessagingException
   {
     GeoEvent motionEvent = null;
@@ -569,7 +594,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         motionEvent = geoEventCreator.create("MotionCalculator", definitionUriString);
         motionEvent.setField(0, trackId);
         motionEvent.setField(1, motionElements.getDistance());
-        motionEvent.setField(2, motionElements.getSpeedKps());
+        motionEvent.setField(2, motionElements.getSpeed());
         motionEvent.setField(3, motionElements.getHeadingDegrees());
         
         motionEvent.setField(4, motionElements.getMinTime());
@@ -594,11 +619,8 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         
         motionEvent.setField(19, motionElements.getGeometry());
         motionEvent.setField(20, motionElements.getPredictiveTime());
-        motionEvent.setField(21, motionElements.getPredictivePosition());
-        motionEvent.setField(22, motionElements.getPredictivePath());
-               
-        //TODO: add fields from source GeoEvent
-        
+        motionEvent.setField(21, motionElements.getPredictiveGeometry());
+       
         motionEvent.setProperty(GeoEventPropertyName.TYPE, "event");
         motionEvent.setProperty(GeoEventPropertyName.OWNER_ID, getId());
         motionEvent.setProperty(GeoEventPropertyName.OWNER_URI, definitionUri);
@@ -612,9 +634,12 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     return motionEvent;
   }
   
+  /*
+   * Returns distance in KMs.
+   */
   private static Double lawOfCosineDistance(Double lon1, Double lat1, Double lon2, Double lat2)
   {
-     final Double R = 6356752.3142 / 1000.0; // Radious of the earth in km
+     final Double R = 6356752.3142; // Radious of the earth in km
      Double radLon1 = toRadions(lon1);
      Double radLat1 = toRadions(lat1);
      Double radLon2 = toRadions(lon2);
@@ -622,7 +647,8 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
      
      return Math.acos(Math.sin(radLat1)*Math.sin(radLat2)+Math.cos(radLat1)*Math.cos(radLat2)*Math.cos(radLon2-radLon1))*R;    
   }
-  /**
+  
+  /*
    * This is the implementation Haversine Distance Algorithm between two locations
    *  R = earth’s radius (mean radius = 6,371km)
       Δlat = lat2− lat1
@@ -631,9 +657,10 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       c = 2.atan2(√a, √(1−a))
       d = R.c
    *
+   * Returns distance in KMs.
    */
   private static Double halversineDistance(Double lon1, Double lat1, Double lon2, Double lat2) {
-    final Double R = 6356752.3142 / 1000.0; // Radious of the earth in km
+    final Double R = 6356752.3142; // Radious of the earth in km
     Double latDistance = toRadions(lat2-lat1);
     Double lonDistance = toRadions(lon2-lon1);
     Double a = Math.sin(latDistance / 2.0) * Math.sin(latDistance / 2.0) + 
@@ -644,6 +671,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     return distance;
   }
   
+  /*
+   * Returns heading in degrees
+   */
   private static Double heading(Double lon1, Double lat1, Double lon2, Double lat2)
   {
     Double radLon1 = toRadions(lon1);

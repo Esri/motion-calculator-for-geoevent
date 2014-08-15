@@ -55,6 +55,7 @@ public class MotionCalculatorDefinition extends GeoEventProcessorDefinitionBase
 			List<FieldDefinition> fdsMC = new ArrayList<FieldDefinition>();
 			fdsMC.add(new DefaultFieldDefinition("trackId", FieldType.String, "TRACK_ID"));
 			fdsMC.add(new DefaultFieldDefinition("distance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("timespan", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("speed", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("heading", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("minTimespan", FieldType.Double));

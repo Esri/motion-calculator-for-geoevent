@@ -218,20 +218,20 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       {
         timespanMilliSecs = startTime.getTime() - timestamp.getTime();
       }
-      Double timespanSecs = timespanMilliSecs / 1000.0;
-      if (timespanSecs == 0.0)
+      timespanSeconds = timespanMilliSecs / 1000.0;
+      if (timespanSeconds == 0.0)
       {
-        timespanSecs = 0.0000000001; // set to very small value to avoid divisor is 0
+        timespanSeconds = 0.0000000001; // set to very small value to avoid divisor is 0
       }
-      if (minTimespan > timespanSecs)
+      if (minTimespan > timespanSeconds)
       {
-        minTimespan = timespanSecs;
+        minTimespan = timespanSeconds;
       }
-      if (maxTimespan < timespanSecs)
+      if (maxTimespan < timespanSeconds)
       {
-        maxTimespan = timespanSecs;
+        maxTimespan = timespanSeconds;
       }
-      cumulativeTimeSeconds = cumulativeTimeSeconds + timespanSecs;
+      cumulativeTimeSeconds = cumulativeTimeSeconds + timespanSeconds;
       if (count > 0)
       {
         avgTimespan = cumulativeTimeSeconds / count;
@@ -588,32 +588,33 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         motionEvent = geoEventCreator.create("MotionCalculator", definitionUriString);
         motionEvent.setField(0, trackId);
         motionEvent.setField(1, motionElements.getDistance());
-        motionEvent.setField(2, motionElements.getSpeed());
-        motionEvent.setField(3, motionElements.getHeadingDegrees());
+        motionEvent.setField(2, motionElements.getTimespanSeconds());
+        motionEvent.setField(3, motionElements.getSpeed());
+        motionEvent.setField(4, motionElements.getHeadingDegrees());
         
-        motionEvent.setField(4, motionElements.getMinTime());
-        motionEvent.setField(5, motionElements.getMaxTime());
-        motionEvent.setField(6, motionElements.getAvgTime());
+        motionEvent.setField(5, motionElements.getMinTime());
+        motionEvent.setField(6, motionElements.getMaxTime());
+        motionEvent.setField(7, motionElements.getAvgTime());
         
-        motionEvent.setField(7, motionElements.getMinDistance());
-        motionEvent.setField(8, motionElements.getMaxDistance());
-        motionEvent.setField(9, motionElements.getAvgDistance());
+        motionEvent.setField(8, motionElements.getMinDistance());
+        motionEvent.setField(9, motionElements.getMaxDistance());
+        motionEvent.setField(10, motionElements.getAvgDistance());
         
-        motionEvent.setField(10, motionElements.getMinSpeed());
-        motionEvent.setField(11, motionElements.getMaxSpeed());
-        motionEvent.setField(12, motionElements.getAvgSpeed());
+        motionEvent.setField(11, motionElements.getMinSpeed());
+        motionEvent.setField(12, motionElements.getMaxSpeed());
+        motionEvent.setField(13, motionElements.getAvgSpeed());
 
-        motionEvent.setField(13, motionElements.getMinAcceleration());
-        motionEvent.setField(14, motionElements.getMaxAcceleration());
-        motionEvent.setField(15, motionElements.getAvgAcceleration());
+        motionEvent.setField(14, motionElements.getMinAcceleration());
+        motionEvent.setField(15, motionElements.getMaxAcceleration());
+        motionEvent.setField(16, motionElements.getAvgAcceleration());
         
-        motionEvent.setField(16, motionElements.getCumulativeDistance());
-        motionEvent.setField(17, motionElements.getCumulativeTime());
-        motionEvent.setField(18, motionElements.getTimestamp());
+        motionEvent.setField(17, motionElements.getCumulativeDistance());
+        motionEvent.setField(18, motionElements.getCumulativeTime());
+        motionEvent.setField(19, motionElements.getTimestamp());
         
-        motionEvent.setField(19, motionElements.getGeometry());
-        motionEvent.setField(20, motionElements.getPredictiveTime());
-        motionEvent.setField(21, motionElements.getPredictiveGeometry());
+        motionEvent.setField(20, motionElements.getGeometry());
+        motionEvent.setField(21, motionElements.getPredictiveTime());
+        motionEvent.setField(22, motionElements.getPredictiveGeometry());
        
         motionEvent.setProperty(GeoEventPropertyName.TYPE, "event");
         motionEvent.setProperty(GeoEventPropertyName.OWNER_ID, getId());

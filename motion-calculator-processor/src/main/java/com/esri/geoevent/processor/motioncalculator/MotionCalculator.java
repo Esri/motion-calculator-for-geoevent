@@ -69,7 +69,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   class MotionElements
   {
     private String id;
-    private Geometry geometry;
+    private Geometry lineGeometry;
     private Geometry prevGeometry;
     private Date timestamp;
     private Double distance = 0.0; //distance defaulted to KMs, but may change to miles based on the distanceunit
@@ -116,34 +116,24 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       
     public Geometry getGeometry()
     {
-      if (geometryType == "Point") {
-        return geometry;
+      if (geometryType.equals("Point")) {
+        return this.prevGeometry;
       }
-      else {
-        if (this.prevGeometry == null || this.geometry == null)
-        {
-          return null;
-        }
-        Point current = (Point)this.geometry;
-        Point prev = (Point)this.prevGeometry;
-        Polyline polyline = spatial.createPolyline();
-        polyline.startPath(prev.getX(), prev.getY(), Double.NaN);
-        polyline.lineTo(current.getX(), current.getY(), Double.NaN);
-        
-        return polyline;
+      else
+      {
+        return lineGeometry;
       }
     }
 
     public void setGeometry(Geometry geometry)
     {
       count++;
-      if (this.geometry == null) 
+      if (this.prevGeometry == null) 
       {
-        this.prevGeometry = this.geometry;
-        this.geometry = geometry;
+        this.prevGeometry = geometry;
         return;
       }
-      Point from = (Point)this.geometry;
+      Point from = (Point)this.prevGeometry;
       Point to = (Point)geometry;
       //Double newDistance = halversineDistance(from.getX(), from.getY(), to.getX(), to.getY());
       Double newDistance = lawOfCosineDistance(from.getX(), from.getY(), to.getX(), to.getY());
@@ -182,7 +172,11 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       distance = newDistance;
       speed = newSpeed;
       acceleration = newAcceleration;
-      this.geometry = geometry;      
+      Polyline polyline = spatial.createPolyline();
+      polyline.startPath(from.getX(), from.getY(), Double.NaN);
+      polyline.lineTo(to.getX(), to.getY(), Double.NaN);
+
+      this.prevGeometry = geometry;
     }
 
     public String getId()

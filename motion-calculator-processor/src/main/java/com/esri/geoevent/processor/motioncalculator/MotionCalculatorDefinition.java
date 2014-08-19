@@ -1,16 +1,8 @@
 package com.esri.geoevent.processor.motioncalculator;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.esri.ges.core.geoevent.DefaultFieldDefinition;
-import com.esri.ges.core.geoevent.DefaultGeoEventDefinition;
-import com.esri.ges.core.geoevent.FieldDefinition;
-import com.esri.ges.core.geoevent.FieldType;
-import com.esri.ges.core.geoevent.GeoEventDefinition;
 import com.esri.ges.core.property.PropertyDefinition;
 import com.esri.ges.core.property.PropertyType;
 import com.esri.ges.processor.GeoEventProcessorDefinitionBase;

@@ -68,7 +68,6 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   private Uri                               definitionUri;
   private String                            definitionUriString;
   private boolean                           isReporting          = false;
-  private String                            sourceGeoEventDefinitionGuid;
   private GeoEventDefinitionManager         geoEventDefinitionManager;
   private Map<String, String>               edMapper            = new ConcurrentHashMap<String, String>();
   private String                            newGeoEventDefinitionName;
@@ -112,10 +111,14 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     public MotionElements(GeoEvent geoevent)
     {
       this.currentGeoEvent = geoevent;
+      System.out.println("MotionElements");
+      System.out.println(geoevent.toString());
     }
 
     public void setGeoEvent(GeoEvent geoevent)
     {
+      System.out.println("setGeoEvent");
+      System.out.println(geoevent.toString());
       this.previousGeoEvent = this.getCurrentGeoEvent();
       this.currentGeoEvent = geoevent;
     }
@@ -256,21 +259,24 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       sendReport();
     }
 
-    public String getId()
-    {
-      return getCurrentGeoEvent().getTrackId();
-    }
-
     private void sendReport()
     {
       if (notificationMode != MotionCalculatorNotificationMode.OnChange)
       {
         return;
       }
+      
+      System.out.println("sendReport");
 
       try
       {
-        GeoEvent outGeoEvent = createMotionGeoEvent(); 
+        GeoEvent outGeoEvent = createMotionGeoEvent();
+        if (outGeoEvent == null)
+        {
+          System.out.println("outGeoEvent is null");
+          return;
+        }        
+        System.out.print(outGeoEvent.toString());
         send(outGeoEvent);
       }
       catch (MessagingException e)
@@ -285,9 +291,14 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       GeoEvent geoEventOut = null;
       try
       {
-        edOut = lookupAndCreateEnrichedDefinition();
+        edOut = lookupAndCreateEnrichedDefinition(this.currentGeoEvent.getGeoEventDefinition());
+        if (edOut == null)
+        {
+          System.out.println("edOut is null");
+          return null;
+        }
         geoEventOut = geoEventCreator.create(edOut.getGuid(), new Object[] {getCurrentGeoEvent().getAllFields(), createMotionGeoEventFields(currentGeoEvent.getTrackId(), this)});
-        geoEventOut.setProperty(GeoEventPropertyName.TYPE, "message");
+        geoEventOut.setProperty(GeoEventPropertyName.TYPE, "event"); //need to use "event" instead of "message" otherwise the resulting GeoEvent will come back in the process() method
         geoEventOut.setProperty(GeoEventPropertyName.OWNER_ID, getId());
         geoEventOut.setProperty(GeoEventPropertyName.OWNER_URI, definition.getUri());
         for (Map.Entry<GeoEventPropertyName, Object> property : getCurrentGeoEvent().getProperties())
@@ -533,8 +544,15 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
             MotionElements motionEle = motionElementsCache.get(trackId);
             try
             {
-
-              send(motionEle.createMotionGeoEvent());
+              GeoEvent outGeoEvent = motionEle.createMotionGeoEvent(); 
+              if (outGeoEvent == null)
+              {
+                System.out.println("outGeoEvent is null");
+                continue;
+              }
+              System.out.print("send");
+              System.out.print(outGeoEvent.toString());
+              send(outGeoEvent);
             }
             catch (MessagingException e)
             {
@@ -582,6 +600,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   @Override
   public void setId(String id)
   {
+    System.out.print("setId " + id);
     super.setId(id);
     destination = new EventDestination(getId() + ":event");
     geoEventProducer = messaging.createGeoEventProducer(destination.getName());
@@ -589,9 +608,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
   @Override
   public GeoEvent process(GeoEvent geoevent) throws Exception
-  {
-    sourceGeoEventDefinitionGuid = geoevent.getGeoEventDefinition().getGuid();
-
+  {  
     String trackId = geoevent.getTrackId();
     MotionElements motionEle;
     if (motionElementsCache.containsKey(trackId) == false)
@@ -750,6 +767,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       fdsMC.add(new DefaultFieldDefinition("minAcceleration", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("maxAcceleration", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("avgAcceleration", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("minSlope", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("maxSlope", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("avgSlope", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("cumulativeDistance", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("cumulativeTime", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("calculatedAt", FieldType.Date));
@@ -766,9 +786,13 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
   }
 
-  synchronized private GeoEventDefinition lookupAndCreateEnrichedDefinition() throws Exception
+  synchronized private GeoEventDefinition lookupAndCreateEnrichedDefinition(GeoEventDefinition edIn) throws Exception
   {
-    GeoEventDefinition edIn = geoEventDefinitionManager.getGeoEventDefinition(sourceGeoEventDefinitionGuid);
+    if (edIn == null)
+    {
+      System.out.println("edIn is null");
+      return null;
+    }
     GeoEventDefinition edOut = edMapper.containsKey(edIn.getGuid()) ? geoEventDefinitionManager.getGeoEventDefinition(edMapper.get(edIn.getGuid())) : null;
     if (edOut == null)
     {
@@ -802,7 +826,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
   private Object[] createMotionGeoEventFields(String trackId, MotionElements motionElements)
   {
-    Object[] motionFields = new Object[22];
+    Object[] motionFields = new Object[24];
     motionFields[0] = motionElements.getDistance();
     motionFields[1] = motionElements.getTimespanSeconds();
     motionFields[2] = motionElements.getSpeed();
@@ -824,12 +848,16 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     motionFields[14] = motionElements.getMaxAcceleration();
     motionFields[15] = motionElements.getAvgAcceleration();
 
-    motionFields[16] = motionElements.getCumulativeDistance();
-    motionFields[17] = motionElements.getCumulativeTime();
-    motionFields[18] = motionElements.getTimestamp();
+    motionFields[16] = motionElements.getMinSlope();
+    motionFields[17] = motionElements.getMaxSlope();
+    motionFields[18] = motionElements.getAvgSlope();
+    
+    motionFields[19] = motionElements.getCumulativeDistance();
+    motionFields[20] = motionElements.getCumulativeTime();
+    motionFields[21] = motionElements.getTimestamp();
 
-    motionFields[19] = motionElements.getPredictiveTime();
-    motionFields[20] = motionElements.getPredictiveGeometry();
+    motionFields[22] = motionElements.getPredictiveTime();
+    motionFields[23] = motionElements.getPredictiveGeometry();
     return motionFields;
   }
 

@@ -24,7 +24,7 @@ public class MotionCalculatorDefinition extends GeoEventProcessorDefinitionBase
 		try
 		{
       propertyDefinitions.put("distanceUnit", new PropertyDefinition("distanceUnit", PropertyType.String, "Kilometers",
-          "Distance Unit", "Distance unit to be used", false, false, "Kilometers", "Miles"));
+          "Distance Unit", "Distance unit to be used", false, false, "Kilometers", "Miles", "Nautical Miles"));
       propertyDefinitions.put("geometryType", new PropertyDefinition("geometryType", PropertyType.String, "Kilometers",
           "Geometry Type", "The resulting Geometry Type", false, false, "Point", "Line"));
       
@@ -41,15 +41,10 @@ public class MotionCalculatorDefinition extends GeoEventProcessorDefinitionBase
       propertyDefinitions.put("clearCache", new PropertyDefinition("clearCache", PropertyType.Boolean, true, 
           "Clear in-memory Cache", "Clear in-memory Cache", "autoResetCache=true", false, false));
 
-      propertyDefinitions.put("calcStat", new PropertyDefinition("calcStat", PropertyType.Boolean, true, 
-          "Calculate statistics", "Calculate statistical min, max, average", true, false));
-
-      propertyDefinitions.put("predictivePosition", new PropertyDefinition("predictivePosition", PropertyType.Boolean, false, 
-          "Predictive Position", "Calculate predictive position based on timespan", true, false));
       propertyDefinitions.put("predictiveTimespan", new PropertyDefinition("predictiveTimespan", PropertyType.Integer, 10,
-          "Predictive Timespan (seconds)", "Timespan in seconds to calculate the next position.", "predictivePosition=true", false, false));
+          "Predictive Timespan (seconds)", "Timespan in seconds to calculate the next position.", false, false));
       propertyDefinitions.put("predictiveGeometryType", new PropertyDefinition("predictiveGeometryType", PropertyType.String, "Kilometers",
-          "Geometry Type", "The resulting Geometry Type", "predictivePosition=true", false, false, "Point", "Line"));
+          "Geometry Type", "The resulting Geometry Type", false, false, "Point", "Line"));
 
       propertyDefinitions.put("newGeoEventDefinitionName", new PropertyDefinition("newGeoEventDefinitionName", PropertyType.String, "MotionCalculatorDef", "Resulting GeoEvent Definition Name", "Resulting GeoEvent Definition Name", false, false));
       

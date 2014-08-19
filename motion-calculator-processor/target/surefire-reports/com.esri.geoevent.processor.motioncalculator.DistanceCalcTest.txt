@@ -1,0 +1,9 @@
+-------------------------------------------------------------------------------
+Test set: com.esri.geoevent.processor.motioncalculator.DistanceCalcTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.037 sec <<< FAILURE!
+test(com.esri.geoevent.processor.motioncalculator.DistanceCalcTest)  Time elapsed: 0.007 sec  <<< FAILURE!
+java.lang.AssertionError: Not yet implemented
+	at org.junit.Assert.fail(Assert.java:91)
+	at com.esri.geoevent.processor.motioncalculator.DistanceCalcTest.test(DistanceCalcTest.java:35)
+

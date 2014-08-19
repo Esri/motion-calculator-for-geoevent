@@ -57,8 +57,6 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
   private String                            distanceUnit;
   private String                            geometryType;
-  //private boolean                           calcStat;
-  //private boolean                           predictivePosition;
   private String                            predictiveGeometryType;
   private Integer                           predictiveTimespan;
   private Date                              resetTime;
@@ -191,8 +189,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       
       Point from = (Point) getPreviousGeoEvent().getGeometry();
       Point to = (Point) getCurrentGeoEvent().getGeometry();
-      // Double newDistance = halversineDistance(from.getX(), from.getY(),
-      // to.getX(), to.getY());
+      // distance = halversineDistance(from.getX(), from.getY(), to.getX(), to.getY());
       distance = lawOfCosineDistance(from.getX(), from.getY(), to.getX(), to.getY());
       Double dZ = to.getZ() - from.getZ();
       slope = dZ / distance;
@@ -202,6 +199,11 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         this.distance *= 0.621371; // Convert KMs to Miles -- will affect all
                                  // subsequent calculation
       }
+      else if (distanceUnit == "Nautical Miles")
+      {
+        this.distance *= 0.539957; // Convert KMs to Nautical Miles
+      }
+      
       Double timespanHours = timespanSeconds / (3600.0);
       Double newSpeed = distance / timespanHours;
       acceleration = (newSpeed - speed) / timespanHours;
@@ -575,14 +577,12 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
   public void afterPropertiesSet()
   {
-    //calcStat = Converter.convertToBoolean(getProperty("calcStat").getValueAsString());
     newGeoEventDefinitionName = getProperty("newGeoEventDefinitionName").getValueAsString();
     distanceUnit = getProperty("distanceUnit").getValueAsString();
     geometryType = getProperty("geometryType").getValueAsString();
     notificationMode = Validator.validateEnum(MotionCalculatorNotificationMode.class, getProperty("notificationMode").getValueAsString(), MotionCalculatorNotificationMode.OnChange);
     reportInterval = Converter.convertToInteger(getProperty("reportInterval").getValueAsString(), 10) * 1000;
     autoResetCache = Converter.convertToBoolean(getProperty("autoResetCache").getValueAsString());
-    //predictivePosition = Converter.convertToBoolean(getProperty("predictivePosition").getValueAsString());
     predictiveGeometryType = getProperty("predictiveGeometryType").getValueAsString();
     predictiveTimespan = Converter.convertToInteger(getProperty("predictiveTimespan").getValueAsString(), 10) * 1000; // convert
                                                                                                                       // to
@@ -668,7 +668,6 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         Long dayInMilliSeconds = 60 * 60 * 24 * 1000L;
         clearCacheTimer.scheduleAtFixedRate(new ClearCacheTask(), time1, dayInMilliSeconds);
       }
-      // trackGeometryCache.clear();
       motionElementsCache.clear();
     }
 
@@ -746,8 +745,6 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
   private List<FieldDefinition> createFieldDefinitionList()
   {
-    // GeoEventDefinition gedMC = new DefaultGeoEventDefinition();
-    // gedMC.setName("MotionCalculator");
     List<FieldDefinition> fdsMC = new ArrayList<FieldDefinition>();
     try
     {
@@ -781,9 +778,6 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
     }
     return fdsMC;
-    // gedMC.setFieldDefinitions(fdsMC);
-    // geoEventDefinitions.put(gedMC.getName(), gedMC);
-
   }
 
   synchronized private GeoEventDefinition lookupAndCreateEnrichedDefinition(GeoEventDefinition edIn) throws Exception

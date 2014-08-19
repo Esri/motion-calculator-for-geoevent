@@ -39,56 +39,7 @@ public class MotionCalculatorDefinition extends GeoEventProcessorDefinitionBase
           "Geometry Type", "The resulting Geometry Type", false, false, "Point", "Line"));
 
       propertyDefinitions.put("newGeoEventDefinitionName", new PropertyDefinition("newGeoEventDefinitionName", PropertyType.String, "MotionCalculatorDef", "Resulting GeoEvent Definition Name", "Resulting GeoEvent Definition Name", false, false));
-      
-			// TODO: How about TrackId selection to potentially track only a
-			// subset of geoevents ???
-      /*
-			GeoEventDefinition gedMC = new DefaultGeoEventDefinition();
-			gedMC.setName("MotionCalculator");
-			List<FieldDefinition> fdsMC = new ArrayList<FieldDefinition>();
-			fdsMC.add(new DefaultFieldDefinition("trackId", FieldType.String, "TRACK_ID"));
-			fdsMC.add(new DefaultFieldDefinition("distance", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("timespan", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("speed", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("heading", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("minTimespan", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("maxTimespan", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("avgTimespan", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("minDistance", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("maxDistance", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("avgDistance", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("minSpeed", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("maxSpeed", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("avgSpeed", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("minAcceleration", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("maxAcceleration", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("avgAcceleration", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("cumulativeDistance", FieldType.Double));
-      fdsMC.add(new DefaultFieldDefinition("cumulativeTime", FieldType.Double));
-			fdsMC.add(new DefaultFieldDefinition("calculatedAt", FieldType.Date));
-			fdsMC.add(new DefaultFieldDefinition("geometry", FieldType.Geometry, "GEOMETRY"));
-      fdsMC.add(new DefaultFieldDefinition("predictiveTime", FieldType.Date));
-      fdsMC.add(new DefaultFieldDefinition("predictivePosition", FieldType.Geometry, "GEOMETRY"));
-			gedMC.setFieldDefinitions(fdsMC);
-			geoEventDefinitions.put(gedMC.getName(), gedMC);
-			*/
-			/*
-      GeoEventDefinition gedPM = new DefaultGeoEventDefinition();
-      gedMC.setName("PredictiveMotion");
-      List<FieldDefinition> fdsPM = new ArrayList<FieldDefinition>();
-      fdsPM.add(new DefaultFieldDefinition("trackId", FieldType.String, "TRACK_ID"));
-      fdsPM.add(new DefaultFieldDefinition("distance", FieldType.Double));
-      fdsPM.add(new DefaultFieldDefinition("speed", FieldType.Double));
-      fdsPM.add(new DefaultFieldDefinition("heading", FieldType.Double));
-      fdsPM.add(new DefaultFieldDefinition("calculatedAt", FieldType.Date));
-      fdsPM.add(new DefaultFieldDefinition("geometry", FieldType.Geometry, "GEOMETRY"));
-      fdsPM.add(new DefaultFieldDefinition("predictiveTime", FieldType.Date));
-      fdsPM.add(new DefaultFieldDefinition("predictivePosition", FieldType.Geometry, "GEOMETRY"));
-      fdsPM.add(new DefaultFieldDefinition("predictivePath", FieldType.Geometry, "GEOMETRY"));
-      gedPM.setFieldDefinitions(fdsPM);
-      geoEventDefinitions.put(gedPM.getName(), gedPM);
-      */
-			
+      			
 		} catch (Exception e)
 		{
 			LOG.error("Error setting up Motion Calculator Definitions.", e);

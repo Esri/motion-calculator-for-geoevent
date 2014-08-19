@@ -422,6 +422,13 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     public Geometry getPredictiveGeometry()
     {
       double predictiveDistance = speed * (predictiveTimespan/ 3600.0); // seconds to hours 
+      if (notificationMode == MotionCalculatorNotificationMode.Continuous)
+      {
+        System.out.println("continuous prediction");
+        Date currentDate = new Date();
+        double timespanToCurrentTime = (currentDate.getTime() - getCurrentGeoEvent().getStartTime().getTime()) / 1000.0; // convert to seconds
+        predictiveDistance = speed * (timespanToCurrentTime / 3600.0); // seconds to hours
+      }
       
       double distRatioSine = Math.sin(predictiveDistance);
       double distRatioCosine = Math.cos(predictiveDistance);

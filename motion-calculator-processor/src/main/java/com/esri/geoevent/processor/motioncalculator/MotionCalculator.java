@@ -265,8 +265,14 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         maxAcceleration = acceleration;
       }
 
-      cumulativeDistance += distance;
-      cumulativeHeight += height;
+      if (Double.isNaN(distance) == false)
+      {
+        cumulativeDistance += distance;        
+      }
+      if (Double.isNaN(height) == false)
+      {
+        cumulativeHeight += height;
+      }
       avgDistance = cumulativeDistance / count;
       avgHeight = cumulativeHeight / count;
       // avgSpeed = cumulativeDistance / (cumulativeTimeSeconds / 3600.0);

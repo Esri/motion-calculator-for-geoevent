@@ -81,16 +81,21 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     private Double   distance              = 0.0; // distance defaulted to KMs,
                                                   // but may change to miles
                                                   // based on the distanceunit
+    private Double   height                = 0.0;
     private Double   slope                 = 0.0;
     private Double   timespanSeconds       = 0.0;
     private Double   speed                 = 0.0;
     private Double   acceleration          = 0.0; // distances per second square
     private Double   headingDegrees        = 0.0;
     private Double   cumulativeDistance    = 0.0;
+    private Double   cumulativeHeight      = 0.0;
     private Double   cumulativeTimeSeconds = 0.0;
     private Double   minDistance           = Double.MAX_VALUE;
     private Double   maxDistance           = Double.MIN_VALUE;
     private Double   avgDistance           = 0.0;
+    private Double   minHeight             = Double.MAX_VALUE;
+    private Double   maxHeight             = Double.MIN_VALUE;
+    private Double   avgHeight             = 0.0;
     private Double   minSpeed              = Double.MAX_VALUE;
     private Double   maxSpeed              = Double.MIN_VALUE;
     private Double   avgSpeed              = 0.0;
@@ -131,6 +136,11 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       return cumulativeDistance;
     }
 
+    public Double getCumulativeHeight()
+    {
+      return cumulativeHeight;
+    }
+    
     public Double getCumulativeTime()
     {
       return cumulativeTimeSeconds;
@@ -191,17 +201,19 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       Point to = (Point) getCurrentGeoEvent().getGeometry();
       // distance = halversineDistance(from.getX(), from.getY(), to.getX(), to.getY());
       distance = lawOfCosineDistance(from.getX(), from.getY(), to.getX(), to.getY());
-      Double dZ = to.getZ() - from.getZ();
-      slope = dZ / distance;
+      height = to.getZ() - from.getZ(); // assuming Z unit is the same as domain as distance unit, e.g. KM-Meter, Miles-feet
+      slope = height / (distance * 1000.0);    // make KM distance into meters
       
       if (distanceUnit == "Miles")
       {
         this.distance *= 0.621371; // Convert KMs to Miles -- will affect all
                                  // subsequent calculation
+        slope = height / (distance * 5280.0 ); //make mile distance into feet
       }
       else if (distanceUnit == "Nautical Miles")
       {
         this.distance *= 0.539957; // Convert KMs to Nautical Miles
+        slope = height / (distance * 6076.12); // make nautical mile distance into feet;
       }
       
       Double timespanHours = timespanSeconds / (3600.0);
@@ -216,6 +228,15 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       if (maxDistance < distance)
       {
         maxDistance = distance;
+      }
+
+      if (minHeight > height)
+      {
+        minHeight = height;
+      }
+      if (maxHeight < height)
+      {
+        maxHeight = height;
       }
       
       if (minSlope > slope)
@@ -244,8 +265,10 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         maxAcceleration = acceleration;
       }
 
-      cumulativeDistance = cumulativeDistance + distance;
+      cumulativeDistance += distance;
+      cumulativeHeight += height;
       avgDistance = cumulativeDistance / count;
+      avgHeight = cumulativeHeight / count;
       // avgSpeed = cumulativeDistance / (cumulativeTimeSeconds / 3600.0);
       avgSpeed = avgDistance / avgTimespan;
       avgAcceleration = avgSpeed / avgTimespan;
@@ -509,6 +532,26 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     {
       this.avgSlope = avgSlope;
     }
+
+    public Double getHeight()
+    {
+      return height;
+    }
+
+    public Double getMinHeight()
+    {
+      return minHeight;
+    }
+
+    public Double getAvgHeight()
+    {
+      return avgHeight;
+    }
+
+    public Double getMaxHeight()
+    {
+      return maxHeight;
+    }
   }
 
   class ClearCacheTask extends TimerTask
@@ -758,15 +801,20 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     try
     {
       fdsMC.add(new DefaultFieldDefinition("distance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("height", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("timespan", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("speed", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("heading", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("slope", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("minTimespan", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("maxTimespan", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("avgTimespan", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("minDistance", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("maxDistance", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("avgDistance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("minHeight", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("maxHeight", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("avgHeight", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("minSpeed", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("maxSpeed", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("avgSpeed", FieldType.Double));
@@ -777,6 +825,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       fdsMC.add(new DefaultFieldDefinition("maxSlope", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("avgSlope", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("cumulativeDistance", FieldType.Double));
+      fdsMC.add(new DefaultFieldDefinition("cumulativeHeight", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("cumulativeTime", FieldType.Double));
       fdsMC.add(new DefaultFieldDefinition("calculatedAt", FieldType.Date));
       fdsMC.add(new DefaultFieldDefinition("predictiveTime", FieldType.Date));
@@ -789,6 +838,43 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     return fdsMC;
   }
 
+  private Object[] createMotionGeoEventFields(String trackId, MotionElements motionElements)
+  {
+    List<Object> motionFieldList = new ArrayList<Object>();
+    motionFieldList.add(motionElements.getDistance());
+    motionFieldList.add(motionElements.getHeight());
+    motionFieldList.add(motionElements.getTimespanSeconds());
+    motionFieldList.add(motionElements.getSpeed());
+    motionFieldList.add(motionElements.getHeadingDegrees());
+    motionFieldList.add(motionElements.getSlope());
+    motionFieldList.add(motionElements.getMinTime());
+    motionFieldList.add(motionElements.getMaxTime());
+    motionFieldList.add(motionElements.getAvgTime());
+    motionFieldList.add(motionElements.getMinDistance());
+    motionFieldList.add(motionElements.getMaxDistance());
+    motionFieldList.add(motionElements.getAvgDistance());
+    motionFieldList.add(motionElements.getMinHeight());
+    motionFieldList.add(motionElements.getMaxHeight());
+    motionFieldList.add(motionElements.getAvgHeight());
+    motionFieldList.add(motionElements.getMinSpeed());
+    motionFieldList.add(motionElements.getMaxSpeed());
+    motionFieldList.add(motionElements.getAvgSpeed());
+    motionFieldList.add(motionElements.getMinAcceleration());
+    motionFieldList.add(motionElements.getMaxAcceleration());
+    motionFieldList.add(motionElements.getAvgAcceleration());
+    motionFieldList.add(motionElements.getMinSlope());
+    motionFieldList.add(motionElements.getMaxSlope());
+    motionFieldList.add(motionElements.getAvgSlope());
+    motionFieldList.add(motionElements.getCumulativeDistance());
+    motionFieldList.add(motionElements.getCumulativeHeight());
+    motionFieldList.add(motionElements.getCumulativeTime());
+    motionFieldList.add(motionElements.getTimestamp());
+    motionFieldList.add(motionElements.getPredictiveTime());
+    motionFieldList.add(motionElements.getPredictiveGeometry());
+    
+    return motionFieldList.toArray();
+  }
+  
   synchronized private GeoEventDefinition lookupAndCreateEnrichedDefinition(GeoEventDefinition edIn) throws Exception
   {
     if (edIn == null)
@@ -825,43 +911,6 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       }
       edMapper.clear();
     }
-  }
-
-  private Object[] createMotionGeoEventFields(String trackId, MotionElements motionElements)
-  {
-    Object[] motionFields = new Object[24];
-    motionFields[0] = motionElements.getDistance();
-    motionFields[1] = motionElements.getTimespanSeconds();
-    motionFields[2] = motionElements.getSpeed();
-    motionFields[3] = motionElements.getHeadingDegrees();
-    
-    motionFields[4] = motionElements.getMinTime();
-    motionFields[5] = motionElements.getMaxTime();
-    motionFields[6] = motionElements.getAvgTime();
-
-    motionFields[7] = motionElements.getMinDistance();
-    motionFields[8] = motionElements.getMaxDistance();
-    motionFields[9] = motionElements.getAvgDistance();
-
-    motionFields[10] = motionElements.getMinSpeed();
-    motionFields[11] = motionElements.getMaxSpeed();
-    motionFields[12] = motionElements.getAvgSpeed();
-
-    motionFields[13] = motionElements.getMinAcceleration();
-    motionFields[14] = motionElements.getMaxAcceleration();
-    motionFields[15] = motionElements.getAvgAcceleration();
-
-    motionFields[16] = motionElements.getMinSlope();
-    motionFields[17] = motionElements.getMaxSlope();
-    motionFields[18] = motionElements.getAvgSlope();
-    
-    motionFields[19] = motionElements.getCumulativeDistance();
-    motionFields[20] = motionElements.getCumulativeTime();
-    motionFields[21] = motionElements.getTimestamp();
-
-    motionFields[22] = motionElements.getPredictiveTime();
-    motionFields[23] = motionElements.getPredictiveGeometry();
-    return motionFields;
   }
 
   /*

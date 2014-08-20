@@ -590,6 +590,8 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     notificationMode = Validator.validateEnum(MotionCalculatorNotificationMode.class, getProperty("notificationMode").getValueAsString(), MotionCalculatorNotificationMode.OnChange);
     reportInterval = Converter.convertToInteger(getProperty("reportInterval").getValueAsString(), 10) * 1000;
     autoResetCache = Converter.convertToBoolean(getProperty("autoResetCache").getValueAsString());
+    clearCache = Converter.convertToBoolean(getProperty("clearCache").getValueAsString());
+    
     predictiveGeometryType = getProperty("predictiveGeometryType").getValueAsString();
     predictiveTimespan = Converter.convertToInteger(getProperty("predictiveTimespan").getValueAsString(), 10) * 1000; // convert
                                                                                                                       // to
@@ -867,7 +869,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
    */
   private static Double lawOfCosineDistance(Double lon1, Double lat1, Double lon2, Double lat2)
   {
-    final Double R = 6356752.3142; // Radious of the earth in km
+    final Double R = 6356752.3142 / 1000.0; // Radious of the earth in km
     Double radLon1 = toRadions(lon1);
     Double radLat1 = toRadions(lat1);
     Double radLon2 = toRadions(lon2);
@@ -887,7 +889,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   @SuppressWarnings("unused")
   private static Double halversineDistance(Double lon1, Double lat1, Double lon2, Double lat2)
   {
-    final Double R = 6356752.3142; // Radious of the earth in km
+    final Double R = 6356752.3142 / 1000.0; // Radious of the earth in km
     Double latDistance = toRadions(lat2 - lat1);
     Double lonDistance = toRadions(lon2 - lon1);
     Double a = Math.sin(latDistance / 2.0) * Math.sin(latDistance / 2.0) + Math.cos(toRadions(lat1)) * Math.cos(toRadions(lat2)) * Math.sin(lonDistance / 2.0) * Math.sin(lonDistance / 2.0);

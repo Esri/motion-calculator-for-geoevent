@@ -29,7 +29,7 @@ public class MotionCalculatorDefinition extends GeoEventProcessorDefinitionBase
 			propertyDefinitions.put("autoResetCache", new PropertyDefinition("autoResetCache", PropertyType.Boolean, false, 
 					"Automatic Reset Cache", "Auto Reset Cache", true, false));
 			propertyDefinitions.put("resetTime", new PropertyDefinition("resetTime", PropertyType.String, "00:00:00",
-					"Reset Cache at", "Reset Cache time", "autoResetCache=false", false, false));
+					"Reset Cache at", "Reset Cache time", "autoResetCache=true", false, false));
       propertyDefinitions.put("clearCache", new PropertyDefinition("clearCache", PropertyType.Boolean, true, 
           "Clear in-memory Cache", "Clear in-memory Cache", "autoResetCache=true", false, false));
 

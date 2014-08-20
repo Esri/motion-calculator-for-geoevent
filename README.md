@@ -1,6 +1,10 @@
 # motion-calculator-for-geoevent
 
-ArcGIS GeoEvent Processor Motion Calculator Processor to .
+ArcGIS GeoEvent Processor Motion Calculator Processor to compute distance, height, speed, acceleration and their statistics, e.g. min, max, average. 
+It is limited to coordinate in longitude, latitude (WGS84). The supported distance units are Kilometers, Miles, and Nautical Miles. The height unit will be in meters for distance in Kilometers
+and feet for distance in Miles or Nautical Miles.
+
+Note: Use Field Reducer if only subset of fields are needed for the output.
 
 ![App](motion-calculator-for-geoevent.png?raw=true)
 

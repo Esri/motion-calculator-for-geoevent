@@ -463,14 +463,14 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
       double distRatioCosine = Math.cos(predictiveDistance);
 
       Point currentPoint = (Point)getCurrentGeoEvent().getGeometry();
-      double startLonRad = toRadions(currentPoint.getX());
-      double startLatRad = toRadions(currentPoint.getY());
+      double startLonRad = toRadians(currentPoint.getX());
+      double startLatRad = toRadians(currentPoint.getY());
 
       double startLatCos = Math.cos(startLatRad);
       double startLatSin = Math.sin(startLatRad);
 
-      double endLatRads = Math.asin((startLatSin * distRatioCosine) + (startLatCos * distRatioSine * Math.cos(toRadions(headingDegrees))));
-      double endLonRads = startLonRad + Math.atan2(Math.sin(toRadions(headingDegrees)) * distRatioSine * startLatCos,
+      double endLatRads = Math.asin((startLatSin * distRatioCosine) + (startLatCos * distRatioSine * Math.cos(toRadians(headingDegrees))));
+      double endLonRads = startLonRad + Math.atan2(Math.sin(toRadians(headingDegrees)) * distRatioSine * startLatCos,
               distRatioCosine - startLatSin * Math.sin(endLatRads));
 
       double newLat = toDegrees(endLatRads);
@@ -925,10 +925,10 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   private static Double lawOfCosineDistance(Double lon1, Double lat1, Double lon2, Double lat2)
   {
     final Double R = 6356752.3142 / 1000.0; // Radious of the earth in km
-    Double radLon1 = toRadions(lon1);
-    Double radLat1 = toRadions(lat1);
-    Double radLon2 = toRadions(lon2);
-    Double radLat2 = toRadions(lat2);
+    Double radLon1 = toRadians(lon1);
+    Double radLat1 = toRadians(lat1);
+    Double radLon2 = toRadians(lon2);
+    Double radLat2 = toRadians(lat2);
 
     return Math.acos(Math.sin(radLat1) * Math.sin(radLat2) + Math.cos(radLat1) * Math.cos(radLat2) * Math.cos(radLon2 - radLon1)) * R;
   }
@@ -945,9 +945,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
   private static Double halversineDistance(Double lon1, Double lat1, Double lon2, Double lat2)
   {
     final Double R = 6356752.3142 / 1000.0; // Radious of the earth in km
-    Double latDistance = toRadions(lat2 - lat1);
-    Double lonDistance = toRadions(lon2 - lon1);
-    Double a = Math.sin(latDistance / 2.0) * Math.sin(latDistance / 2.0) + Math.cos(toRadions(lat1)) * Math.cos(toRadions(lat2)) * Math.sin(lonDistance / 2.0) * Math.sin(lonDistance / 2.0);
+    Double latDistance = toRadians(lat2 - lat1);
+    Double lonDistance = toRadians(lon2 - lon1);
+    Double a = Math.sin(latDistance / 2.0) * Math.sin(latDistance / 2.0) + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(lonDistance / 2.0) * Math.sin(lonDistance / 2.0);
     Double c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     Double distance = R * c;
     return distance;
@@ -958,10 +958,10 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
    */
   private static Double heading(Double lon1, Double lat1, Double lon2, Double lat2)
   {
-    Double radLon1 = toRadions(lon1);
-    Double radLat1 = toRadions(lat1);
-    Double radLon2 = toRadions(lon2);
-    Double radLat2 = toRadions(lat2);
+    Double radLon1 = toRadians(lon1);
+    Double radLat1 = toRadians(lat1);
+    Double radLon2 = toRadians(lon2);
+    Double radLat2 = toRadians(lat2);
     Double y = Math.sin(radLon2 - radLon1) * Math.cos(radLat2);
     Double x = Math.cos(radLat1) * Math.sin(radLat2) - Math.sin(radLat1) * Math.cos(radLat2) * Math.cos(radLon2 - radLon1);
     /*
@@ -979,7 +979,7 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
     return headingDegrees;
   }
 
-  private static Double toRadions(Double value)
+  private static Double toRadians(Double value)
   {
     return value * Math.PI / 180.0;
   }

@@ -450,7 +450,22 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
 
     public Geometry getPredictiveGeometry()
     {
+      final Double R = 6356752.3142 / 1000.0; // Radious of the earth in km
+      double earthRadius = R;
+
       double predictiveDistance = speed * (predictiveTimespan/ 3600.0); // seconds to hours 
+      
+      if (distanceUnit == "Miles")
+      {
+        predictiveDistance *= 0.621371; // Convert KMs to Miles -- will affect all
+        earthRadius *= 0.621371;
+      }
+      else if (distanceUnit == "Nautical Miles")
+      {
+        predictiveDistance *= 0.539957; // Convert KMs to Nautical Miles
+        earthRadius *= 0.539957;
+      }
+      
       if (notificationMode == MotionCalculatorNotificationMode.Continuous)
       {
         System.out.println("continuous prediction");
@@ -459,8 +474,9 @@ public class MotionCalculator extends GeoEventProcessorBase implements EventProd
         predictiveDistance = speed * (timespanToCurrentTime / 3600.0); // seconds to hours
       }
       
-      double distRatioSine = Math.sin(predictiveDistance);
-      double distRatioCosine = Math.cos(predictiveDistance);
+      double distRatio = predictiveDistance / earthRadius;
+      double distRatioSine = Math.sin(distRatio);
+      double distRatioCosine = Math.cos(distRatio);
 
       Point currentPoint = (Point)getCurrentGeoEvent().getGeometry();
       double startLonRad = toRadians(currentPoint.getX());

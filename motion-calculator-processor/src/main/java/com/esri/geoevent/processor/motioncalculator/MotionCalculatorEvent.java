@@ -1,16 +1,16 @@
 package com.esri.geoevent.processor.motioncalculator;
 
-import com.esri.ges.spatial.Geometry;
+import com.esri.core.geometry.MapGeometry;
 
 public class MotionCalculatorEvent
 {
-  private Geometry geometry;
+  private MapGeometry geometry;
 	private String category;
 	private Long currentCounter;
   private Long cumulativeCounter;
 	private boolean stopMonitoring;
 
-	public MotionCalculatorEvent(Geometry geometry, String category, Long currentCounter, Long cumulativeCounter, boolean stopMonitoring)
+	public MotionCalculatorEvent(MapGeometry geometry, String category, Long currentCounter, Long cumulativeCounter, boolean stopMonitoring)
 	{
 	  this.geometry = geometry;
 		this.category = category;
@@ -19,7 +19,7 @@ public class MotionCalculatorEvent
 		this.stopMonitoring = stopMonitoring;
 	}
 
-	public Geometry getGeometry()
+	public MapGeometry getGeometry()
 	{
 	  return geometry;
 	}

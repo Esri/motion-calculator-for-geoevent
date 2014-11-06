@@ -10,8 +10,7 @@
 	<artifactId>motion-calculator-processor</artifactId>
 	<name>Esri :: GeoEvent :: Processor :: MotionCalculator</name>
 	<packaging>bundle</packaging>
-	<dependencies>
-	</dependencies>
+	
 	<build>
 		<plugins>
 			<plugin>

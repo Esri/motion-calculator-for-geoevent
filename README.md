@@ -1,6 +1,6 @@
 # motion-calculator-for-geoevent
 
-The ArcGIS 10.3 GeoEvent Extension for Server sample Motion Calculator Processor can be added to a GeoEvent Service to compute distance, timespan, height, speed, acceleration, heading, and some statistics (for example min, max, average) on GeoEvents. It currently supports coordinates in longitude, latitude (WGS84). The supported distance units are kilometers, miles, and nautical miles. The supported height units are meters for distances in kilometers and feet for distance in miles or nautical miles.
+The ArcGIS 10.3.x GeoEvent Extension for Server sample Motion Calculator Processor can be added to a GeoEvent Service to compute distance, timespan, height, speed, acceleration, heading, and some statistics (for example min, max, average) on GeoEvents. It currently supports coordinates in longitude, latitude (WGS84). The supported distance units are kilometers, miles, and nautical miles. The supported height units are meters for distances in kilometers and feet for distance in miles or nautical miles.
 
 Note: Use Field Reducer if only subset of fields are needed for the output.
 

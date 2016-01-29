@@ -9,7 +9,7 @@ Note: Use Field Reducer if only subset of fields are needed for the output.
 ![App](motion-calculator-for-geoevent.png?raw=true)
 
 ## Features
-* Event Count by Category Processor
+* Motion Calculator Processor
 
 ## Instructions
 

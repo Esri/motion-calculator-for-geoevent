@@ -1,4 +1,10 @@
 #################
+## IntelliJ Idea
+#################
+*.iml
+.idea/
+
+#################
 ## Eclipse
 #################
 
@@ -20,13 +26,6 @@ target
 # External tool builders
 .externalToolBuilders/
 
-<<<<<<< HEAD
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-motion-calculator-processor/target/classes/META-INF/MANIFEST.MF
-motion-calculator-processor/target/classes/META-INF/MANIFEST.MF
-motion-calculator-processor/target/classes/META-INF/MANIFEST.MF
-=======
 # Locally stored "Eclipse launch configurations"
 *.launch
 
@@ -221,5 +220,3 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
-*.MF
->>>>>>> origin/master

@@ -244,6 +244,13 @@ public class MotionCalculator extends GeoEventProcessorBase implements GeoEventP
       /*
        * if (wrongTemporalOrder) { distance *= -1.0; height *= -1.0; }
        */
+       
+       if (distance == 0.0)
+      {
+        // Adding same safe guard as with timespan to avoid dividing by 0 but for when only height values have changed
+        distance = 0.0000000001; 
+      }
+      
       slope = height / (distance * 1000.0); // make KM distance into meters
 
       if (distanceUnit.compareTo("Miles") == 0)
@@ -718,8 +725,8 @@ public class MotionCalculator extends GeoEventProcessorBase implements GeoEventP
     clearCache = Converter.convertToBoolean(getProperty("clearCache").getValueAsString());
 
     predictiveGeometryType = getProperty("predictiveGeometryType").getValueAsString();
-    // convert to milliseconds
-    predictiveTimespan = Converter.convertToInteger(getProperty("predictiveTimespan").getValueAsString(), 10) * 1000;
+  // kept conversion to Int but removed multiplier. Time values were already in milliseconds
+    predictiveTimespan = Converter.convertToInteger(getProperty("predictiveTimespan").getValueAsString(), 10) ;
 
     String[] resetTimeStr = getProperty("resetTime").getValueAsString().split(":");
     // Get the Date corresponding to 11:01:00 pm today.
